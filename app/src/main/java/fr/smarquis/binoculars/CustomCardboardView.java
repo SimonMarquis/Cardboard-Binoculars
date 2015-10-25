@@ -1,6 +1,7 @@
 package fr.smarquis.binoculars;
 
 import android.content.Context;
+import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
@@ -11,7 +12,7 @@ import com.google.vrtoolkit.cardboard.Viewport;
 
 import javax.microedition.khronos.egl.EGLConfig;
 
-public class CustomCardboardView extends CardboardView implements CardboardView.StereoRenderer {
+public class CustomCardboardView extends CardboardView implements CardboardView.StereoRenderer, SurfaceTexture.OnFrameAvailableListener {
 
     private final float[] mMVPMatrix = new float[16];
 
@@ -19,22 +20,30 @@ public class CustomCardboardView extends CardboardView implements CardboardView.
 
     private final float[] mViewMatrix = new float[16];
 
+    private CameraPreview cameraPreview;
+
     public CustomCardboardView(Context context) {
         super(context);
         setEGLContextClientVersion(2);
         setRestoreGLStateEnabled(false);
-        setRenderer((StereoRenderer) this);
+        setRenderer(this);
+        setAlignmentMarkerEnabled(false);
+        setSettingsButtonEnabled(false);
+        // setDistortionCorrectionEnabled(false);
+        // setLowLatencyModeEnabled(true);
     }
 
     @Override
     public void onSurfaceCreated(EGLConfig eglConfig) {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        cameraPreview = new CameraPreview(this);
     }
+
 
     @Override
     public void onSurfaceChanged(int width, int height) {
         GLES20.glViewport(0, 0, width, height);
-        float ratio = (float) width / height;
+        float ratio = (float) 1080 / 1920;
         Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1, 1, 3, 7);
     }
 
@@ -48,11 +57,13 @@ public class CustomCardboardView extends CardboardView implements CardboardView.
 
         // Calculate the projection and view transformation
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mViewMatrix, 0);
+
+        cameraPreview.onNewFrame();
     }
 
     @Override
     public void onDrawEye(Eye eye) {
-
+        cameraPreview.onDraw(mMVPMatrix);
     }
 
     @Override
@@ -63,5 +74,32 @@ public class CustomCardboardView extends CardboardView implements CardboardView.
     @Override
     public void onRendererShutdown() {
 
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (cameraPreview != null) {
+            cameraPreview.onResume();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (cameraPreview != null) {
+            cameraPreview.onPause();
+        }
+    }
+
+    @Override
+    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        requestRender();
+    }
+
+    public void onCardboardTrigger() {
+        if (cameraPreview != null) {
+            cameraPreview.onCardboardTrigger();
+        }
     }
 }
